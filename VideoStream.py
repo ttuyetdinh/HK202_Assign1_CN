@@ -1,8 +1,10 @@
-__author__ = 'Tibbers'
+import cv2
+import os
 import struct
 class VideoStream:
 	def __init__(self, filename):
 		self.filename = filename
+		self.wholeVideo = []
 		try:
 			self.file = open(filename, 'rb')
 			print ('-'*60 +  "\nVideo file : |" + filename +  "| read\n" + '-'*60)
@@ -39,7 +41,44 @@ class VideoStream:
 
 			return frame
 
+	def getWholeVideo(self):
+		"""Append to the list"""
+		if self.filename:
+            # Get the framelength from the first 5 bits
+			data = self.file.read(5)
+			if data:
+				framelength = int(data)
+				self.wholeVideo.append(framelength)
+				data = self.file.read(framelength)
+			return data
+
+	def calNumFrames(self):
+		"""Get total nimber of frame"""
+		while self.getWholeVideo():
+			pass
+		self.numFrame = len(self.wholeVideo)
+		self.file.close()
+		self.file = open(self.filename, 'rb')
+
+	def calFps(self):
+		"""Get frame per second"""
+		cap = cv2.VideoCapture("./{0}".format(self.filename))
+		self.fps = int(cap.get(cv2.CAP_PROP_FPS))
+
+	def calTotalTime(self):
+		"""Get total time of video"""
+		self.calNumFrames()
+		self.calFps()
+		self.totalTime= self.numFrame/ self.fps
+
+
+
 	def frameNbr(self):
 		"""Get frame number."""
 		return self.frameNum
+
+	def reset_frame(self):
+		"""restart the video"""
+		self.file.seek(0)
+		self.frameNum = 0
 
