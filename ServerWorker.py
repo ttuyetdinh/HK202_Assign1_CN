@@ -1,5 +1,3 @@
-__author__ = 'Tibbers'
-
 import random, math
 import time
 from random import randint
@@ -175,6 +173,9 @@ class ServerWorker:
 					print ('-'*60)
 					traceback.print_exc(file=sys.stdout)
 					print ('-'*60)
+			else: 
+				pass
+
 
 	def makeRtp(self, payload, frameNbr):
 		"""RTP-packetize the video data."""
@@ -186,7 +187,6 @@ class ServerWorker:
 		pt = 26 # MJPEG type
 		seqnum = frameNbr
 		ssrc = 0
-
 		rtpPacket = RtpPacket()
 
 		rtpPacket.encode(version, padding, extension, cc, seqnum, marker, pt, ssrc, payload)
