@@ -14,11 +14,16 @@ class ServerWorker:
 	TEARDOWN = 'TEARDOWN'
 	EXIT = 'EXIT'
 	DESCRIBE= 'DESCRIBE'
+	FORWARD = 'FORWARD'
+	BACKWARD = 'BACKWARD'
 #state
 	INIT = 0
 	READY = 1
 	PLAYING = 2
 	state = INIT
+	
+	backward = 0
+	forward = 0
 
 	OK_200 = 0
 	FILE_NOT_FOUND_404 = 1
@@ -65,6 +70,8 @@ class ServerWorker:
 					self.totalTime = self.clientInfo['videoStream'].totalTime
 					self.fps = self.clientInfo['videoStream'].fps
 					self.noFrames = self.clientInfo['videoStream'].numFrame
+					self.clientInfo['videoStream'].getPosFrame()
+
 				except IOError:
 					self.replyRtsp(self.FILE_NOT_FOUND_404, seq[1])
 				# Generate a randomized RTSP session ID
@@ -93,7 +100,7 @@ class ServerWorker:
 				self.clientInfo['event'] = threading.Event()
 				self.clientInfo['worker']= threading.Thread(target=self.sendRtp)
 				self.clientInfo['worker'].start()
-		# Process RESUME request !!!No pause state
+			# Process RESUME request !!!No pause state
 			elif self.state == self.PAUSE:
 				print ('-'*60 + "\nRESUME Request Received\n" + '-'*60)
 				self.state = self.PLAYING
@@ -129,8 +136,18 @@ class ServerWorker:
 		# Process DESCRIBE request
 		elif requestType == self.DESCRIBE:
 			print ('-'*60 + "\nDESCRIBE Request Received\n" + '-'*60)
-
 			self.replyRtsp(self.OK_200, seq[1])
+		
+		# Process FORWARD request
+		elif requestType == self.FORWARD:
+			print ('-'*60 + "\nFORWARD Request Received\n" + '-'*60)
+			self.replyRtsp(self.OK_200, seq[1])
+			self.forward=1
+		# Process BACKWARD request
+		elif requestType == self.BACKWARD:
+			print ('-'*60 + "\nBACKWARD Request Received\n" + '-'*60)
+			self.replyRtsp(self.OK_200, seq[1])
+			self.backward=1
 
 	def sendRtp(self):
 		"""Send RTP packets over UDP."""
@@ -148,7 +165,7 @@ class ServerWorker:
 			if self.clientInfo['event'].isSet():
 				break
 
-			data = self.clientInfo['videoStream'].nextFrame()
+			data = self.clientInfo['videoStream'].nextFrame(self.forward,self.backward)
 			#print '-'*60 + "\ndata from nextFrame():\n" + data + "\n"
 			if data:
 				frameNumber = self.clientInfo['videoStream'].frameNbr()
@@ -175,6 +192,8 @@ class ServerWorker:
 					print ('-'*60)
 			else: 
 				pass
+			if self.backward==1: self.backward = 0
+			if self.forward==1: self.forward = 0
 
 
 	def makeRtp(self, payload, frameNbr):

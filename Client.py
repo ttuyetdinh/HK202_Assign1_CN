@@ -36,7 +36,8 @@ class Client:
 
 	RTSP_VER = "RTSP/1.0"
 	TRANSPORT = "RTP/UDP"
-
+	backsignal=0
+	forsignal=0
 	counter = 0
 	# Initiation..
 	def __init__(self, master, serveraddr, serverport, rtpport, filename):
@@ -113,6 +114,11 @@ class Client:
 		"""Setup button handler."""
 		if self.state !=self.INIT:
 			self.sendRtspRequest(self.TEARDOWN)
+			try:
+				rate = float(self.counter/self.frameNbr)
+			except: 
+				rate=0
+			print ('-'*60 + "\nRTP Packet Loss Rate :" + str(rate) +"\n" + '-'*60)
 
 	def exitClient(self):
 		"""Exit button handler."""
@@ -120,7 +126,10 @@ class Client:
 		#self.handler()
 		self.master.destroy() # Close the gui window
 		os.remove(CACHE_FILE_NAME + str(self.sessionId) + CACHE_FILE_EXT) # Delete the cache image from video
-		rate = float(self.counter/self.frameNbr)
+		try:
+			rate = float(self.counter/self.frameNbr)
+		except: 
+			rate=0
 		print ('-'*60 + "\nRTP Packet Loss Rate :" + str(rate) +"\n" + '-'*60)
 		sys.exit(0)
 
@@ -151,7 +160,7 @@ class Client:
 
 	def backwardVideo(self):
 		if self.state !=self.INIT:
-			print("Forward video....")
+			print("Backward video....")
 			self.sendRtspRequest(self.BACKWARD)
 
 	def listenRtp(self):
@@ -165,7 +174,7 @@ class Client:
 					print ("||Received Rtp Packet #" + str(rtpPacket.seqNum()) + "|| ")
 
 					try:
-						if self.frameNbr + 1 != rtpPacket.seqNum():
+						if self.frameNbr + 1 != rtpPacket.seqNum() and (self.backsignal==1 or self.forsignal==1) :
 							self.counter += 1
 							print ('!'*60 + "\nPACKET LOSS\n" + '!'*60)
 						currFrameNbr = rtpPacket.seqNum()
@@ -179,7 +188,7 @@ class Client:
 					if currFrameNbr > self.frameNbr: # Discard the late packet
 						self.frameNbr = currFrameNbr
 						self.updateMovie(self.writeFrame(rtpPacket.getPayload()))
-
+					print('currframe: ', currFrameNbr, ' frameNbr: ',self.frameNbr)
 			except:
 				# Stop listening upon requesting PAUSE or TEARDOWN
 				print ("Didn`t receive data!")
@@ -192,6 +201,8 @@ class Client:
 					self.rtpSocket.shutdown(socket.SHUT_RDWR)
 					self.rtpSocket.close()
 					break
+			self.backsignal=0
+			self.forsignal=0
 
 	def writeFrame(self, data):
 		"""Write the received frame to a temp image file. Return the image file."""
@@ -339,7 +350,7 @@ class Client:
 			request+="\nSession: %d" % self.sessionId
 			self.requestSent = self.DESCRIBE
 		
-		elif self.requestCode == self.FORWARD:
+		elif requestCode == self.FORWARD:
 			# Update RTSP sequence number.
 			# ...
 			self.rtspSeq = self.rtspSeq + 1
@@ -349,8 +360,24 @@ class Client:
 			request = "%s %s %s" % (self.FORWARD_STR, self.fileName, self.RTSP_VER)
 			request+="\nCSeq: %d" % self.rtspSeq
 			request+="\nSession: %d" % self.sessionId
+			self.forsignal=1
 			self.requestSent = self.FORWARD
-			pass
+
+			
+		elif requestCode == self.BACKWARD:
+			# Update RTSP sequence number.
+			# ...
+			self.rtspSeq = self.rtspSeq + 1
+			# Write the RTSP request to be sent.
+			# request = ...
+			##request = "EXIT " + "\n" + str(self.rtspSeq)
+			request = "%s %s %s" % (self.BACKWARD_STR, self.fileName, self.RTSP_VER)
+			request+="\nCSeq: %d" % self.rtspSeq
+			request+="\nSession: %d" % self.sessionId
+			self.backsignal=1
+			if self.frameNbr > 0:
+				self.frameNbr -= int(self.fps)+1
+			self.requestSent = self.BACKWARD
 
 		else:
 			return
