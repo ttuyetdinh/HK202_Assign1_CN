@@ -167,14 +167,19 @@ class Client:
 		while True:
 			try:
 				data,addr = self.rtpSocket.recvfrom(20480)
-
 				if data:
 					rtpPacket = RtpPacket()
 					rtpPacket.decode(data)
-					print ("||Received Rtp Packet #" + str(rtpPacket.seqNum()) + "|| ")
+					if rtpPacket.payload == bytearray(1):
+						print('Stop listen RTP from server !!')
+						#self.playEvent.set()
+						#self.state=self.READY
+						self.teardownMovie()
 
+						break
+					print ("||Received Rtp Packet #" + str(rtpPacket.seqNum()) + "|| ")
 					try:
-						if self.frameNbr + 1 != rtpPacket.seqNum() and (self.backsignal==1 or self.forsignal==1) :
+						if self.frameNbr + 1 != rtpPacket.seqNum() and (self.backsignal==1 ^ self.forsignal==1) :
 							self.counter += 1
 							print ('!'*60 + "\nPACKET LOSS\n" + '!'*60)
 						currFrameNbr = rtpPacket.seqNum()
@@ -191,10 +196,9 @@ class Client:
 					print('currframe: ', currFrameNbr, ' frameNbr: ',self.frameNbr)
 			except:
 				# Stop listening upon requesting PAUSE or TEARDOWN
-				print ("Didn`t receive data!")
 				if self.playEvent.isSet():
 					break
-
+				print ("Didn`t receive data!")
 				# Upon receiving ACK for TEARDOWN request,
 				# close the RTP socket
 				if self.teardownAcked == 1:
@@ -361,6 +365,7 @@ class Client:
 			request+="\nCSeq: %d" % self.rtspSeq
 			request+="\nSession: %d" % self.sessionId
 			self.forsignal=1
+			
 			self.requestSent = self.FORWARD
 
 			
@@ -375,8 +380,7 @@ class Client:
 			request+="\nCSeq: %d" % self.rtspSeq
 			request+="\nSession: %d" % self.sessionId
 			self.backsignal=1
-			if self.frameNbr > 0:
-				self.frameNbr -= int(self.fps)+1
+
 			self.requestSent = self.BACKWARD
 
 		else:
@@ -473,10 +477,19 @@ class Client:
 						self.pauseMovie()
 						messagebox.showinfo(title='Information', message=describe)
 						print ("Playing Movie")
-						threading.Thread(target=self.listenRtp).start()
-						self.playEvent = threading.Event()
-						self.playEvent.clear()
-						self.sendRtspRequest(self.PLAY)
+						self.playMovie()
+					elif self.requestSent == self.FORWARD:
+						if self.state == self.PLAYING:
+							if self.frameNbr +int(self.fps) > int(self.frames):
+								self.frameNbr = int(self.frames)-2
+							else :
+								self.frameNbr += int(self.fps)
+					elif self.requestSent == self.BACKWARD:
+						if self.state == self.PLAYING:
+							if self.frameNbr -int(self.fps) > 0:
+								self.frameNbr -= int(self.fps)+1
+							else :
+								self.frameNbr=0
 
 	def openRtpPort(self):
 		"""Open RTP socket binded to a specified port."""

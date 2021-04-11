@@ -18,9 +18,10 @@ class VideoStream:															#numFrame: total frames in video
 		moveFrame=0
 		"""Forward video"""
 		if forward==1:
-			if self.frameNum + self.fps > 500:
-				self.file.seek(self.posAllFrame[-1])
-				self.frameNum = self.numFrame
+			if self.frameNum + self.fps > self.numFrame:
+				print("OCER HERE !!!!")
+				self.file.seek(self.posAllFrame[self.numFrame-2])
+				self.frameNum = self.numFrame -1
 			else:
 				self.file.seek(self.posAllFrame[self.frameNum + self.fps])
 				self.frameNum += self.fps

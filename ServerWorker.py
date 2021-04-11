@@ -66,12 +66,11 @@ class ServerWorker:
 				try:
 					self.clientInfo['videoStream'] = VideoStream(filename)
 					self.state = self.READY
-					self.clientInfo['videoStream'].calTotalTime()
-					self.totalTime = self.clientInfo['videoStream'].totalTime
-					self.fps = self.clientInfo['videoStream'].fps
-					self.noFrames = self.clientInfo['videoStream'].numFrame
-					self.clientInfo['videoStream'].getPosFrame()
-
+					self.clientInfo['videoStream'].calTotalTime()  # calculate length of video in second
+					self.totalTime = self.clientInfo['videoStream'].totalTime # length of video in second
+					self.fps = self.clientInfo['videoStream'].fps # fps of video
+					self.noFrames = self.clientInfo['videoStream'].numFrame # Number of frames of video
+					self.clientInfo['videoStream'].getPosFrame() # make position list of each frame in file
 				except IOError:
 					self.replyRtsp(self.FILE_NOT_FOUND_404, seq[1])
 				# Generate a randomized RTSP session ID
@@ -140,14 +139,20 @@ class ServerWorker:
 		
 		# Process FORWARD request
 		elif requestType == self.FORWARD:
-			print ('-'*60 + "\nFORWARD Request Received\n" + '-'*60)
-			self.replyRtsp(self.OK_200, seq[1])
-			self.forward=1
+			if self.state == self.PLAYING:
+				print ('-'*60 + "\nFORWARD Request Received\n" + '-'*60)
+				self.replyRtsp(self.OK_200, seq[1])
+				self.forward=1
+			else:
+				print('Video is not pause')
 		# Process BACKWARD request
 		elif requestType == self.BACKWARD:
-			print ('-'*60 + "\nBACKWARD Request Received\n" + '-'*60)
-			self.replyRtsp(self.OK_200, seq[1])
-			self.backward=1
+			if self.state == self.PLAYING:
+				print ('-'*60 + "\nBACKWARD Request Received\n" + '-'*60)
+				self.replyRtsp(self.OK_200, seq[1])
+				self.backward=1
+			else: 
+				print('Video is not pause')
 
 	def sendRtp(self):
 		"""Send RTP packets over UDP."""
@@ -155,11 +160,7 @@ class ServerWorker:
 		counter = 0
 		threshold = 10
 		while True:
-			jit = math.floor(random.uniform(-13,5.99))
-			jit = jit / 1000
-
-			self.clientInfo['event'].wait(0.05 + jit)
-			jit = jit + 0.020
+			self.clientInfo['event'].wait(0.05)
 
 			# Stop sending if request is PAUSE or TEARDOWN
 			if self.clientInfo['event'].isSet():
@@ -170,28 +171,28 @@ class ServerWorker:
 			if data:
 				frameNumber = self.clientInfo['videoStream'].frameNbr()
 				try:
-					#address = 127.0.0.1 #self.clientInfo['rtspSocket'][0][0]
-					#port = '25000' #int(self.clientInfo['rtpPort'])
-
-					#print '-'*60 + "\nmakeRtp:\n" + self.makeRtp(data,frameNumber)
-					#print '-'*60
-
-					#address = self.clientInfo['rtspSocket'][1]   #!!!! this is a tuple object ("address" , "")
-
+					address = self.clientInfo['rtspSocket'][1][0]
 					port = int(self.clientInfo['rtpPort'])
-
-					prb = math.floor(random.uniform(1,100))
-					if prb > 5.0:
-						self.clientInfo['rtpSocket'].sendto(self.makeRtp(data, frameNumber),(self.clientInfo['rtspSocket'][1][0],port))
-						counter += 1
-						time.sleep(jit)
+					self.clientInfo['rtpSocket'].sendto(self.makeRtp(data, frameNumber),(address,port))
 				except:
 					print ("Connection Error")
 					print ('-'*60)
 					traceback.print_exc(file=sys.stdout)
 					print ('-'*60)
 			else: 
-				pass
+				try:
+					address = self.clientInfo['rtspSocket'][1][0]
+					port = int(self.clientInfo['rtpPort'])
+					self.clientInfo['rtpSocket'].sendto(self.makeRtp(bytearray(1),0 ),(address,port))
+					#self.clientInfo['event'].set()
+					print('Stop send RTP to client')
+					#self.clientInfo['videoStream'].reset_frame()
+
+				except:
+					print ("Connection Error")
+					print ('-'*60)
+					traceback.print_exc(file=sys.stdout)
+					print ('-'*60)
 			if self.backward==1: self.backward = 0
 			if self.forward==1: self.forward = 0
 
