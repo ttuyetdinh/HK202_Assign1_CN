@@ -170,10 +170,11 @@ class ServerWorker:
 			#print '-'*60 + "\ndata from nextFrame():\n" + data + "\n"
 			if data:
 				frameNumber = self.clientInfo['videoStream'].frameNbr()
+				framecount = self.clientInfo['videoStream'].frameCnt()
 				try:
 					address = self.clientInfo['rtspSocket'][1][0]
 					port = int(self.clientInfo['rtpPort'])
-					self.clientInfo['rtpSocket'].sendto(self.makeRtp(data, frameNumber),(address,port))
+					self.clientInfo['rtpSocket'].sendto(self.makeRtp(data, frameNumber, framecount),(address,port))
 				except:
 					print ("Connection Error")
 					print ('-'*60)
@@ -183,7 +184,7 @@ class ServerWorker:
 				try:
 					address = self.clientInfo['rtspSocket'][1][0]
 					port = int(self.clientInfo['rtpPort'])
-					self.clientInfo['rtpSocket'].sendto(self.makeRtp(bytearray(1),0 ),(address,port))
+					self.clientInfo['rtpSocket'].sendto(self.makeRtp(bytearray(1),0,0 ),(address,port))
 					#self.clientInfo['event'].set()
 					print('Stop send RTP to client')
 					#self.clientInfo['videoStream'].reset_frame()
@@ -197,7 +198,7 @@ class ServerWorker:
 			if self.forward==1: self.forward = 0
 
 
-	def makeRtp(self, payload, frameNbr):
+	def makeRtp(self, payload, frameNbr, frameCount):
 		"""RTP-packetize the video data."""
 		version = 2
 		padding = 0
@@ -209,7 +210,7 @@ class ServerWorker:
 		ssrc = 0
 		rtpPacket = RtpPacket()
 
-		rtpPacket.encode(version, padding, extension, cc, seqnum, marker, pt, ssrc, payload)
+		rtpPacket.encode(version, padding, extension, cc, seqnum, marker, pt, ssrc, payload, frameCount)
 
 		return rtpPacket.getPacket()
 

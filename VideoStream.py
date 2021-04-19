@@ -3,7 +3,7 @@ import os
 import struct
 class VideoStream:															#numFrame: total frames in video
 	def __init__(self, filename):											#frameNum: the current frame is reading from file	
-		self.filename = filename
+		self.filename = filename											#frameCount: the number of frame has read
 		self.wholeVideo = []
 		self.posAllFrame= []
 		try:
@@ -13,6 +13,7 @@ class VideoStream:															#numFrame: total frames in video
 			print ("read " + filename + " error")
 			raise IOError
 		self.frameNum = 0
+		self.frameCount = 0
 
 	def nextFrame(self, forward=0 , backward =0 ):
 		moveFrame=0
@@ -39,7 +40,9 @@ class VideoStream:															#numFrame: total frames in video
 			framelength = int(data)
 			data = self.file.read(framelength)
 			self.frameNum += 1
-			print ('-'*10 + "\nNext Frame (#" + str(self.frameNum) + ") length:" + str(framelength) + "\n" + '-'*10)
+			self.frameCount +=1
+			print ('-'*10 + "\nNext Frame    (#" + str(self.frameNum) + ") length:" + str(framelength))
+			print ("FrameCounter: (#" + str(self.frameCount) + ')' )
 		return data
 
 	def getPosFrame(self):
@@ -93,8 +96,13 @@ class VideoStream:															#numFrame: total frames in video
 		"""Get frame number."""
 		return self.frameNum
 
+	def frameCnt(self):
+		"""Get frame number."""
+		return self.frameCount
+
 	def reset_frame(self):
 		"""restart the video"""
 		self.file.seek(0)
 		self.frameNum = 0
+		self.frameCount = 0
 

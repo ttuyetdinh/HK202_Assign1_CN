@@ -54,6 +54,7 @@ class Client:
 		self.teardownAcked = 0
 		self.connectToServer()
 		self.frameNbr = 0
+		self.frameCount = 0
 		self.rtpSocket = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
 		self.setupMovie()
 
@@ -61,37 +62,37 @@ class Client:
 		"""Build GUI."""
 		# Create Describe button
 		self.setup = Button(self.master, width=20, padx=3, pady=3)
-		self.setup["text"] = chr(8505)
+		self.setup["text"] = "Describle" + chr(8505)
 		self.setup["command"] = self.describeInfo
 		self.setup.grid(row=2, column=2, padx=2, pady=2)
 
 		# Create Play button
 		self.start = Button(self.master, width=20, padx=3, pady=3)
-		self.start["text"] = chr(9654)
+		self.start["text"] = "Play " + chr(9654)
 		self.start["command"] = self.playMovie
 		self.start.grid(row=1, column=0, padx=2, pady=2)
 
 		# Create Pause button
 		self.pause = Button(self.master, width=20, padx=3, pady=3)
-		self.pause["text"] = chr(9208)
+		self.pause["text"] =  "Pause " + chr(9208)
 		self.pause["command"] = self.pauseMovie
 		self.pause.grid(row=1, column=1, padx=2, pady=2)
 
 		# Create Forward button
 		self.setup = Button(self.master, width=20, padx=3, pady=3)
-		self.setup["text"] = chr(9193)
+		self.setup["text"] = "Forward " + chr(9193)
 		self.setup["command"] = self.forwardVideo
 		self.setup.grid(row=2, column=1, padx=2, pady=2)
 
 		# Create Backward button
 		self.setup = Button(self.master, width=20, padx=3, pady=3)
-		self.setup["text"] = chr(9194)
+		self.setup["text"] = "Backward" + chr(9194)
 		self.setup["command"] = self.backwardVideo
 		self.setup.grid(row=2, column=0, padx=2, pady=2)
 
 		# Create Stop button
 		self.teardown = Button(self.master, width=20, padx=3, pady=3)
-		self.teardown["text"] = chr(9209) #==Teardown
+		self.teardown["text"] = "Stop" + chr(9209) #==Teardown
 		self.teardown["command"] =  self.teardownMovie
 		self.teardown.grid(row=1, column=2, padx=2, pady=2)
 
@@ -114,11 +115,7 @@ class Client:
 		"""Setup button handler."""
 		if self.state !=self.INIT:
 			self.sendRtspRequest(self.TEARDOWN)
-			try:
-				rate = float(self.counter/self.frameNbr)
-			except: 
-				rate=0
-			print ('-'*60 + "\nRTP Packet Loss Rate :" + str(rate) +"\n" + '-'*60)
+			self.showLoss()
 
 	def exitClient(self):
 		"""Exit button handler."""
@@ -126,17 +123,14 @@ class Client:
 		#self.handler()
 		self.master.destroy() # Close the gui window
 		os.remove(CACHE_FILE_NAME + str(self.sessionId) + CACHE_FILE_EXT) # Delete the cache image from video
-		try:
-			rate = float(self.counter/self.frameNbr)
-		except: 
-			rate=0
-		print ('-'*60 + "\nRTP Packet Loss Rate :" + str(rate) +"\n" + '-'*60)
+		self.showLoss()
 		sys.exit(0)
 
 	def pauseMovie(self):
 		"""Pause button handler."""
 		if self.state == self.PLAYING:
 			self.sendRtspRequest(self.PAUSE)
+		self.showLoss()
 
 	def playMovie(self):
 		"""Play button handler."""
@@ -178,8 +172,10 @@ class Client:
 
 						break
 					print ("||Received Rtp Packet #" + str(rtpPacket.seqNum()) + "|| ")
+					self.frameCount +=1
+					print("FrCnt Sever: " + str(rtpPacket.getfrCount()) + " FrCnt Client: " + str(self.frameCount))
 					try:
-						if self.frameNbr + 1 != rtpPacket.seqNum() and (self.backsignal==1 ^ self.forsignal==1) :
+						if self.frameCount  < rtpPacket.getfrCount() and (self.backsignal==0 or self.forsignal==0) :
 							self.counter += 1
 							print ('!'*60 + "\nPACKET LOSS\n" + '!'*60)
 						currFrameNbr = rtpPacket.seqNum()
@@ -463,6 +459,7 @@ class Client:
 						self.state = self.READY
 						self.playEvent.set()
 						self.frameNbr=0
+						self.frameCount=0
 						# Flag the teardownAcked to close the socket.
 						#self.teardownAcked = 1
 						#self.reset_init(self.master, self.serverAddr, self.serverPort, self.rtpPort, self.fileName)
@@ -531,3 +528,9 @@ class Client:
 			#self.playEvent = threading.Event()
 			#self.playEvent.clear()
 			self.sendRtspRequest(self.PLAY)
+	def showLoss(self):
+		try:
+			rate = float(self.counter/self.frameNbr)
+		except: 
+			rate=0
+		print ('-'*60 + "\nRTP Packet Loss Rate :" + str(rate) +"\n" + '-'*60)

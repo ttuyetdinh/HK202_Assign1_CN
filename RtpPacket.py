@@ -5,7 +5,7 @@ from time import time
 
 
 import VideoStream
-HEADER_SIZE = 12
+HEADER_SIZE = 14
 
 class RtpPacket:
 	#header = bytearray(HEADER_SIZE)
@@ -14,9 +14,8 @@ class RtpPacket:
 	def __init__(self):
 		self.header = bytearray(HEADER_SIZE)
 
-	def encode(self, version, padding, extension, cc, seqnum, marker, pt, ssrc, payload):
+	def encode(self, version, padding, extension, cc, seqnum, marker, pt, ssrc, payload, framecount):
 		"""Encode the RTP packet with header fields and payload."""
-
 		timestamp = int(time())
 		print ("timestamp: " + str(timestamp))
 		self.header = bytearray(HEADER_SIZE)
@@ -57,6 +56,8 @@ class RtpPacket:
 		self.header[9] = ssrc >> 16
 		self.header[10] = ssrc >> 8
 		self.header[11] = ssrc
+		self.header[12] = (framecount & 0xFF00) >> 8
+		self.header[13] = (framecount & 0xFF)
 		# Get the payload from the argument
 		# self.payload = ...
 		self.payload = payload
@@ -65,7 +66,7 @@ class RtpPacket:
 		"""Decode the RTP packet."""
 
 		#print byteStream[:HEADER_SIZE]
-		self.header = bytearray(byteStream[:HEADER_SIZE])   #temporary solved
+		self.header = bytearray(byteStream[:HEADER_SIZE])   
 
 		self.payload = byteStream[HEADER_SIZE:]
 
@@ -97,3 +98,8 @@ class RtpPacket:
 	def getPacket(self):
 		"""Return RTP packet."""
 		return self.header + self.payload
+
+	def getfrCount(self):
+		"""Return sequence (frame) number."""
+		frcount = self.header[12] << 8 | self.header[13]  #header[2] shift left for 8 bits then does bit or with header[3]
+		return int(frcount)
